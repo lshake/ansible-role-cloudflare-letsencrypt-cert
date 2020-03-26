@@ -1,0 +1,21 @@
+---
+variables:
+  ANSIBLE_PROJECT_NAME: lshake.cloudflare-letsencrypt-cert
+  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$ANSIBLE_PROJECT_NAME
+  TOX_PARALLEL_NO_SPINNER: 1
+
+cache:
+  paths:
+    - venv/
+
+before_script:
+  - . /opt/rh/rh-python36/enable
+  - virtualenv venv/tox
+  - . venv/tox/bin/activate
+  - pip3 install tox molecule ansible docker
+
+init:
+  stage: test
+  script:
+    - tox
+

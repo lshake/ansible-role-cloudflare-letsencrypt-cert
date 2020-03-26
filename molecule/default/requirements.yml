@@ -1,0 +1,4 @@
+---
+- name: lshake.yum-repos
+  scm: git
+  src: git@github.com:lshake/ansible-role-yum-repos.git

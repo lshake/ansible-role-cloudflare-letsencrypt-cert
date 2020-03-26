@@ -1,0 +1,4 @@
+---
+cloudflare_letsencrypt_cert_packages:
+  - python-cryptography
+  - openssl

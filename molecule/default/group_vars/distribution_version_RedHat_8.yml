@@ -1,0 +1,32 @@
+---
+yum_repos_reposets:
+  - name: sat6
+    sslcacert: "{{ yum_repos_ssl_directory }}/{{ yum_repos_sat6_sslcacert }}"
+    sslclientkey: "{{ yum_repos_ssl_directory }}/{{ yum_repos_sat6_sslclientkey }}"
+    sslclientcert: "{{ yum_repos_ssl_directory }}/{{ yum_repos_sat6_sslclientcert }}"
+    gpgkey: "file://{{ yum_repos_ssl_directory }}/{{ yum_repos_sat6_gpgkey }}"
+    repos:
+      - name: rhel-8-for-x86_64-appstream-rpms
+        description: Red Hat Enterprise Linux 8 for x86_64 - AppStream (RPMs)
+        baseurl: "https://sat6c.lab.shakey.org/pulp/repos/Shakey_Towers_Lab/\
+          Library/RHEL8/content/dist/rhel8/$releasever/x86_64/appstream/os"
+        enabled: 1
+        gpgcheck: 1
+        sslverify: 1
+        metadata_expire: 1
+        enable_metadata: 1
+        ui_repoid_vars:
+          - releasever
+      - name: rhel-8-for-x86_64-baseos-rpms
+        description: Red Hat Enterprise Linux 8 for x86_64 - BaseOS (RPMs)
+        baseurl: "https://sat6c.lab.shakey.org/pulp/repos/Shakey_Towers_Lab/\
+          Library/RHEL8/content/dist/rhel8/$releasever/x86_64/baseos/os"
+        enabled: 1
+        gpgcheck: 1
+        sslverify: 1
+        metadata_expire: 1
+        enable_metadata: 1
+        ui_repoid_vars:
+          - releasever
+  - name: ubi
+    state: absent

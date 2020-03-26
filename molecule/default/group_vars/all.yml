@@ -1,0 +1,4 @@
+---
+cloudflare_letsencrypt_cert_san:
+  - DNS:{{ inventory_hostname }}
+  - DNS:lcte-{{ inventory_hostname }}

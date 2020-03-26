@@ -1,0 +1,13 @@
+---
+- name: run tasks on inventory host
+  include_tasks: process_certs.yml
+  when: cloudflare_letsencrypt_cert_delegate_host is not defined
+
+- name: run tasks on delegated hosts
+  block:
+
+   - name: run tasks delegated
+     include_tasks: process_certs.yml
+
+  delegate_to: "{{ cloudflare_letsencrypt_cert_delegate_host }}"
+  when: cloudflare_letsencrypt_cert_delegate_host is defined

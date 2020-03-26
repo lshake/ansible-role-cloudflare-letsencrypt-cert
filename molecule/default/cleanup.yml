@@ -1,0 +1,30 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: False
+  vars:
+    cloudflare_letsencrypt_cert_cloudflare_email: "{{ lookup('env','CLOUDFLARE_EMAIL') }}"
+    cloudflare_letsencrypt_cert_cloudflare_api_key: "{{ lookup('env','CLOUDFLARE_API_KEY') }}"
+    cloudflare_letsencrypt_cert_common_name: "{{ inventory_hostname }}"
+
+  tasks:
+    - name: infer the base domain name for cloudflare "{{ cloudflare_letsencrypt_cert_common_name }}"
+      set_fact:
+        cloudflare_letsencrypt_cert_cloudflare_domain: "{{ cloudflare_letsencrypt_cert_common_name.split('.')[-2:] | join('.') }}"
+      when: cloudflare_letsencrypt_cert_cloudflare_domain is not defined
+      delegate_to: localhost
+
+    - name: Delete the TXT records
+      cloudflare_dns:
+        domain: "{{ cloudflare_letsencrypt_cert_cloudflare_domain }}"
+        record: "_acme-challenge.{{ item.split(':')[-1].split('.')[:2] | join('.') }}"
+        type: TXT
+        account_email: "{{ cloudflare_letsencrypt_cert_cloudflare_email }}"
+        account_api_token: "{{ cloudflare_letsencrypt_cert_cloudflare_api_key }}"
+        state: absent
+      loop: "{{ cloudflare_letsencrypt_cert_san }}"
+      register: cloudflare_letsencrypt_cert_cloudflare_dns_update
+      until: cloudflare_letsencrypt_cert_cloudflare_dns_update is not failed
+      retries: 5
+      delay: 10
+      delegate_to: localhost

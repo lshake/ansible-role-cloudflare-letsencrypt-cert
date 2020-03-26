@@ -1,0 +1,33 @@
+---
+# This is an example playbook to execute Ansible tests.
+
+- name: Verify
+  hosts: all
+  tasks:
+  - name: copy letsencrypt staging root CA
+    copy:
+      dest: certs/letsencrypt-staging-root-ca.pem
+      src: files/fakelerootx1.pem
+
+  - name: check the certs are valid
+    command: openssl verify -CAfile certs/letsencrypt-staging-root-ca.pem -untrusted certs/{{ ansible_fqdn }}-intermediate.crt certs/{{ ansible_fqdn }}.crt
+    register: check_certs
+    changed_when: false
+
+  - name: assert the certs are valid
+    assert:
+        that: check_certs.stdout.find('OK') != -1
+        fail_msg: 'Certificates failed to validate against the staging letsencrypt root'
+        success_msg: 'Certificate validated'
+
+  - name: check the SAN is correct
+    shell: "openssl x509 -in certs/{{ ansible_fqdn }}.crt -text | grep DNS"
+    register: check_certs
+    changed_when: false
+
+  - name: assert the SAN is set
+    assert:
+      that: check_certs.stdout.find(item) != -1
+      fail_msg: 'Certificates failed to validate against the staging letsencrypt root'
+      success_msg: 'Certificate validated'
+    loop: "{{ cloudflare_letsencrypt_cert_san }}"

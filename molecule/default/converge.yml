@@ -1,0 +1,7 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Include lshake.cloudflare-letsencrypt-cert"
+      include_role:
+        name: "lshake.cloudflare-letsencrypt-cert"

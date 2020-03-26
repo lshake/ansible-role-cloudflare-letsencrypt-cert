@@ -1,0 +1,5 @@
+---
+yum_repos_sat6_sslcacert: sat6_sslcacert.pem
+yum_repos_sat6_sslclientkey: sat6_sslclientkey-vault.pem
+yum_repos_sat6_sslclientcert: sat6_sslclientcert.pem
+yum_repos_sat6_gpgkey: RPM-GPG-KEY-redhat-release

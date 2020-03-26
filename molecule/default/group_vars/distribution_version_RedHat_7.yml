@@ -1,0 +1,35 @@
+---
+yum_repos_reposets:
+  - name: sat6
+    sslcacert: "{{ yum_repos_ssl_directory }}/{{ yum_repos_sat6_sslcacert }}"
+    sslclientkey: "{{ yum_repos_ssl_directory }}/{{ yum_repos_sat6_sslclientkey }}"
+    sslclientcert: "{{ yum_repos_ssl_directory }}/{{ yum_repos_sat6_sslclientcert }}"
+    gpgkey: "file://{{ yum_repos_ssl_directory }}/{{ yum_repos_sat6_gpgkey }}"
+    repos:
+      - name: rhel-7-server-rpms
+        description: Red Hat Enterprise Linux 7 Server (RPMs)
+        baseurl: "https://sat6c.lab.shakey.org/pulp/repos/\
+                    Shakey_Towers_Lab/production/Shakey_Towers_RHEL_7/\
+                    content/dist/rhel/server/7/$releasever/$basearch/os"
+        enabled: 1
+        gpgcheck: 1
+        sslverify: 1
+        metadata_expire: 1
+        enable_metadata: 1
+        ui_repoid_vars:
+          - releasever
+          - basearch
+      - name: rhel-7-server-extras-rpms
+        description: Red Hat Enterprise Linux 7 Server - Extras (RPMs)
+        baseurl: "https://sat6c.lab.shakey.org/pulp/repos/\
+                    Shakey_Towers_Lab/production/Shakey_Towers_RHEL_7/\
+                    content/dist/rhel/server/7/7Server/$basearch/extras/os"
+        enabled: 0
+        gpgcheck: 1
+        sslverify: 1
+        metadata_expire: 1
+        enable_metadata: 1
+        ui_repoid_vars:
+          - basearch
+  - name: ubi
+    state: absent

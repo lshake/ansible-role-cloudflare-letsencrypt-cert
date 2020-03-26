@@ -1,0 +1,23 @@
+---
+- name: Prepare
+  hosts: all
+  tasks:
+
+    - name: Create a group of all hosts by operating system family
+      group_by: key=family_{{ ansible_os_family }}
+    - name: Create a group of all hosts by distribution
+      group_by: key=distribution_{{ ansible_distribution }}
+    - name: Create a group of all hosts by distribution version
+      group_by: key=distribution_version_{{ ansible_distribution }}_{{ ansible_distribution_major_version }}
+
+
+    - name: "Enrole RHEL UBI into Sat6"
+      include_role:
+        name: lshake.yum-repos
+      when:
+        - ansible_distribution == 'RedHat'
+
+    - name: create the certs directory
+      file:
+        state: directory
+        path: certs

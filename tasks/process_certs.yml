@@ -1,0 +1,152 @@
+---
+# tasks file for lshake.cloudflare-letsencrypt-cert
+- name: source distro variables
+  include_vars:
+    file: cloudflare_letsencrypt_cert_{{ ansible_distribution }}_{{ ansible_distribution_major_version }}.yml
+
+- name: install required packages
+  yum:
+    name: "{{ cloudflare_letsencrypt_cert_packages }}"
+    state: present
+
+- name: infer the base domain name for cloudflare "{{ cloudflare_letsencrypt_cert_common_name }}"
+  set_fact:
+    cloudflare_letsencrypt_cert_cloudflare_domain: "{{ cloudflare_letsencrypt_cert_common_name.split('.')[-2:] | join('.') }}"
+  when: cloudflare_letsencrypt_cert_cloudflare_domain is not defined
+
+- name: Generate a private key for letsencrypt
+  openssl_privatekey:
+    path: "{{ cloudflare_letsencrypt_cert_file_path }}/cloudflare-letsencrypt-auth-letsencrypt.key"
+  register: cloudflare_letsencrypt_cert_cloudflare_cert
+
+- name: Generate a private key for the server
+  openssl_privatekey:
+    path: "{{ cloudflare_letsencrypt_cert_file_path }}/{{ cloudflare_letsencrypt_cert_common_name }}.key"
+    passphrase: "{{ cloudflare_letsencrypt_cert_passphrase | default(omit) }}"
+    cipher: "{{ cloudflare_letsencrypt_cert_passphrase | default(False) | ternary('auto', omit, omit)  }}"
+
+- name: Generate a csr for the server
+  openssl_csr:
+    path: "{{ cloudflare_letsencrypt_cert_file_path }}/{{ cloudflare_letsencrypt_cert_common_name }}.csr"
+    privatekey_path: "{{ cloudflare_letsencrypt_cert_file_path }}/{{ cloudflare_letsencrypt_cert_common_name }}.key"
+    privatekey_passphrase: "{{ cloudflare_letsencrypt_cert_passphrase | default(omit) }}"
+    common_name: "{{ cloudflare_letsencrypt_cert_common_name }}"
+    subject_alt_name: "{{ cloudflare_letsencrypt_cert_san }}"
+  register: cloudflare_letsencrypt_cert_letsencrypt_csr
+
+- name: Create a challenge for server using a account key file.
+  acme_certificate:
+    account_key_src: "{{ cloudflare_letsencrypt_cert_file_path }}/cloudflare-letsencrypt-auth-letsencrypt.key"
+    account_email: ansiblecerts@shakey.org
+    src: "{{ cloudflare_letsencrypt_cert_file_path }}/{{ cloudflare_letsencrypt_cert_common_name }}.csr"
+    cert: "{{ cloudflare_letsencrypt_cert_file_path }}/{{ cloudflare_letsencrypt_cert_common_name }}.crt"
+    challenge: dns-01
+    acme_directory: "{{ cloudflare_letsencrypt_cert_letsencypt_endpoint }}"
+    remaining_days: 60
+    acme_version: 2
+    terms_agreed: True
+    force: "{{ cloudflare_letsencrypt_cert_letsencrypt_csr is changed | ternary('True', omit, omit)  }}"
+  register: cloudflare_letsencrypt_cert_letsencrypt_challenge
+  until: cloudflare_letsencrypt_cert_letsencrypt_challenge is not failed
+  retries: 5
+  delay: 10
+
+- name: Create TXT record with the challenge
+  cloudflare_dns:
+    domain: "{{ cloudflare_letsencrypt_cert_cloudflare_domain }}"
+    record: "{{ item.value['dns-01']['record'] }}"
+    type: TXT
+    value: "{{ item.value['dns-01']['resource_value'] }}"
+    solo: true
+    account_email: "{{ cloudflare_letsencrypt_cert_cloudflare_email }}"
+    account_api_token: "{{ cloudflare_letsencrypt_cert_cloudflare_api_key }}"
+    state: present
+  when: cloudflare_letsencrypt_cert_letsencrypt_challenge.challenge_data is defined
+  loop: "{{ cloudflare_letsencrypt_cert_letsencrypt_challenge.challenge_data | default({}) |  dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: cloudflare_letsencrypt_cert_cloudflare_dns_update
+  until: cloudflare_letsencrypt_cert_cloudflare_dns_update is not failed
+  retries: 5
+  delay: 10
+
+- name: pause for 5 seconds to let Cloudflare DNS catch up
+  pause:
+    seconds: 5
+
+- name: Retrieve the cert and intermediate certificate
+  acme_certificate:
+    account_key_src: "{{ cloudflare_letsencrypt_cert_file_path }}/cloudflare-letsencrypt-auth-letsencrypt.key"
+    account_email: ansiblecerts@shakey.org
+    src: "{{ cloudflare_letsencrypt_cert_file_path }}/{{ cloudflare_letsencrypt_cert_common_name }}.csr"
+    cert: "{{ cloudflare_letsencrypt_cert_file_path }}/{{ cloudflare_letsencrypt_cert_common_name }}.crt"
+    fullchain: "{{ cloudflare_letsencrypt_cert_file_path }}/{{ cloudflare_letsencrypt_cert_common_name }}-fullchain.crt"
+    chain: "{{ cloudflare_letsencrypt_cert_file_path }}/{{ cloudflare_letsencrypt_cert_common_name }}-intermediate.crt"
+    challenge: dns-01
+    acme_directory: https://acme-staging-v02.api.letsencrypt.org/directory
+    remaining_days: 60
+    acme_version: 2
+    terms_agreed: True
+    data: "{{ cloudflare_letsencrypt_cert_letsencrypt_challenge }}"
+  register: cloudflare_letsencrypt_cert_letsencrypt_results
+  when: cloudflare_letsencrypt_cert_letsencrypt_challenge is changed
+  until: cloudflare_letsencrypt_cert_letsencrypt_challenge is not failed
+  retries: 5
+  delay: 10
+  throttle: 1
+
+- name: slurp the files
+  slurp:
+    src: "{{ cloudflare_letsencrypt_cert_file_path + '/' + cloudflare_letsencrypt_cert_common_name + item }}"
+  register: cloudflare_letsencrypt_cert_slurp
+  loop:
+    - ".crt"
+    - "-intermediate.crt"
+    - "-fullchain.crt"
+    - ".key"
+    - ".csr"
+
+- name: read in the results
+  set_fact:
+    cloudflare_letsencrypt_cert_yaml: |
+      "{{ cloudflare_letsencrypt_cert_common_name }}":
+        cert: "{{ cloudflare_letsencrypt_cert_slurp.results.0.content | b64decode }}"
+        chain: "{{ cloudflare_letsencrypt_cert_slurp.results.1.content | b64decode }}"
+        fullchain: "{{ cloudflare_letsencrypt_cert_slurp.results.2.content | b64decode }}"
+        privatekey: "{{ cloudflare_letsencrypt_cert_slurp.results.3.content | b64decode }}"
+        csr: "{{ cloudflare_letsencrypt_cert_slurp.results.4.content | b64decode }}"
+        subject_alt_san: "{{ cloudflare_letsencrypt_cert_san }}"
+        {% if cloudflare_letsencrypt_cert_passphrase is defined %}passphase: "{{ cloudflare_letsencrypt_cert_passphrase }}"{% endif %}
+
+- name: set empty dict for results
+  set_fact:
+    cloudflare_letsencrypt_cert: {}
+  when: cloudflare_letsencrypt_cert is undefined
+
+- name: convert results to dict
+  set_fact:
+    cloudflare_letsencrypt_cert: "{{ cloudflare_letsencrypt_cert | combine (cloudflare_letsencrypt_cert_yaml | from_yaml) }}"
+
+- name: cleanup if requested
+  block:
+
+  - name: remove certificate files
+    file:
+      state: absent
+      path: "{{ cloudflare_letsencrypt_cert_file_path + '/' + cloudflare_letsencrypt_cert_common_name + item }}"
+    loop:
+      - ".crt"
+      - "-intermediate.crt"
+      - "-fullchain.crt"
+      - ".key"
+      - ".csr"
+
+  - name: remove letsencrypt key
+    file:
+      state: absent
+      path: "{{ cloudflare_letsencrypt_cert_file_path + '/cloudflare-letsencrypt-auth-letsencrypt.key' }}"
+    when: cloudflare_letsencrypt_cert_cloudflare_cert is changed
+
+  when:
+    - cloudflare_letsencrypt_cert_files_cleanup is defined
+    - cloudflare_letsencrypt_cert_files_cleanup

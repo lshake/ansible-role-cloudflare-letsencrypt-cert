@@ -1,0 +1,10 @@
+---
+# defaults file for lshake.cloudflare-letsencrypt-cert
+cloudflare_letsencrypt_cert_common_name: "{{ ansible_fqdn }}"
+cloudflare_letsencrypt_cert_file_path: certs
+cloudflare_letsencrypt_cert_san:
+  - "DNS:{{ cloudflare_letsencrypt_cert_common_name }}"
+cloudflare_letsencrypt_cert_cloudflare_email: "{{ lookup('env','CLOUDFLARE_EMAIL') }}"
+cloudflare_letsencrypt_cert_cloudflare_api_key: "{{ lookup('env','CLOUDFLARE_API_KEY') }}"
+cloudflare_letsencrypt_cert_letsencypt_ca: staging
+cloudflare_letsencrypt_cert_letsencypt_endpoint: "{{ (cloudflare_letsencrypt_cert_letsencypt_ca == 'production') | ternary('https://acme-v02.api.letsencrypt.org/directory', 'https://acme-staging-v02.api.letsencrypt.org/directory') }}"
